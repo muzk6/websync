@@ -39,6 +39,10 @@ foreach ($conf['ignore'] as $v) {
 $excludes = [];
 foreach ($ignores as $ignore) {
     $ignore = trim($ignore);
+    if (strpos($ignore, '#') !== false) {
+        continue;
+    }
+
     $excludes[] = "--exclude={$ignore}";
 }
 $excludes = implode(' ', $excludes);
