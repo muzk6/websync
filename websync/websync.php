@@ -24,14 +24,19 @@ if (!file_exists('.gitignore') && !$force) {
 }
 
 $conf = require(__DIR__ . '/config.php');
-$src = $opt['src'] ?? getcwd() . '/';
-$dst = $opt['dst'] ?? $conf['dst_root'] . '/' . basename($src);
+$src = isset($opt['src']) ? $opt['src'] : getcwd() . '/';
+$dst = isset($opt['dst']) ? $opt['dst'] : $conf['dst_root'] . '/' . basename($src);
 
+// .gitignore 里的忽略列表
 $ignores = file('.gitignore');
-$excludes = [];
 $ignores || $ignores = [];
-$ignores[] = '.git';
 
+// 配置文件里的忽略列表
+foreach ($conf['ignore'] as $v) {
+    $ignores[] = $v;
+}
+
+$excludes = [];
 foreach ($ignores as $ignore) {
     $ignore = trim($ignore);
     $excludes[] = "--exclude={$ignore}";
