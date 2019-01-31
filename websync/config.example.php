@@ -1,9 +1,11 @@
 <?php
 
 return [
-    'remote' => 'name@host',
-    'dst_root' => '/path/to',
-    'ignore' => [
-        '.git',
-    ]
+    'scope1' => [
+        'remote' => 'name@host',
+        'dst_root' => '/path/to',
+        'ignore' => [
+            '.git',
+        ]
+    ],
 ];
