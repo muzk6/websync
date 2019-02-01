@@ -64,6 +64,7 @@ foreach ($scopeConf['ignore'] as $v) {
     $ignores[] = $v;
 }
 
+// 忽略文件的参数
 $excludes = [];
 foreach ($ignores as $ignore) {
     $ignore = trim($ignore);
@@ -75,6 +76,12 @@ foreach ($ignores as $ignore) {
 }
 $excludes = implode(' ', $excludes);
 
-$cmd = "rsync -avz --delete --progress {$excludes} {$src} {$scopeConf['remote']}:{$dst}";
+// 重置文件权限
+$chown = '';
+if (isset($scopeConf['chown'])) {
+    $chown = "--chown={$scopeConf['chown']}";
+}
+
+$cmd = "rsync -avz --delete --progress {$chown} {$excludes} {$src} {$scopeConf['remote']}:{$dst}";
 echo $cmd . PHP_EOL;
 system($cmd);

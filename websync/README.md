@@ -15,4 +15,5 @@
 
 - `remote` 远程服务器例如 `name@host`
 - `dst_root` 远程目的根路径，指定 `--dst` 参数时忽略此配置
+- `chown` 即 `--chown` 重置文件权限，否则按源文件权限来
 - `ignore` 主动忽略列表
