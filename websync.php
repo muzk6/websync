@@ -3,7 +3,7 @@
 <?php
 
 /**
- * 项目文件同步
+ * Web 项目文件同步
  */
 
 $opt = getopt('h::v::t::', ['src::', 'dst::', 'remote::',

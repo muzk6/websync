@@ -1,4 +1,4 @@
-# 项目文件同步
+# Web 项目文件同步
 > 自动根据`.gitignore`忽略列表进行`rsync --exclude`
 
 #### 安装
