@@ -6,7 +6,7 @@
  * 项目文件同步
  */
 
-$opt = getopt('', ['src::', 'dst::', 'force::', 'help::'], $ind);
+$opt = getopt('', ['src::', 'dst::', 'force::', 'test::', 'help::'], $ind);
 
 $help = isset($opt['help']) ?: false;
 if ($help) {
@@ -14,7 +14,14 @@ if ($help) {
 USAGE
     websync [OPTION...] [SCOPE]
 OPTION
-    [--src=本地源路径] [--dst=远程目的路径] [--force 项目没有 .git 时强制同步]
+    --test
+        测试模式，只打印而不执行命令
+    --src=
+        本地源路径
+    --dst=
+        远程目的路径
+    --force 
+        项目没有 .git 时强制同步
 SCOPE
     域，对应配置文件里的 scope
     如果不指定[SCOPE]，默认会从项目目录上一层的 .websyncscope 里取
@@ -84,4 +91,8 @@ if (isset($scopeConf['chown'])) {
 
 $cmd = "rsync -avz --delete --progress {$chown} {$excludes} {$src} {$scopeConf['remote']}:{$dst}";
 echo $cmd . PHP_EOL;
-system($cmd);
+
+// 非测试模式才执行命令
+if (!isset($opt['test'])) {
+    system($cmd);
+}
