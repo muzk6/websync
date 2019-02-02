@@ -1,5 +1,4 @@
 #! /usr/bin/env php
-
 <?php
 
 /**
@@ -42,7 +41,7 @@ DOC;
 }
 
 // 配置文件路径
-$pathConf = getenv('HOME') . '/.websync';
+$pathConf = getenv('HOME') . '/.websync.php';
 
 // 初始化配置
 if (isset($opt['init'])) {
@@ -54,7 +53,7 @@ if (isset($opt['init'])) {
     system(sprintf('cp %s %s', __DIR__ . '/.websync.example.php', $pathConf));
 
     echo '配置文件初始化完成，请继续编辑配置:' . PHP_EOL;
-    echo 'vim ~/.websync' . PHP_EOL;
+    echo 'vim ~/.websync.php' . PHP_EOL;
     exit;
 }
 
@@ -83,7 +82,7 @@ $pwd = getcwd();
 $projectName = basename($pwd);
 if (!isset($conf['projects'][$projectName])) {
     echo "不存在项目配置 {$projectName}" . PHP_EOL;
-    echo "vim ~/.websync 配置 projects.{$projectName}" . PHP_EOL;
+    echo "vim ~/.websync.php 配置 projects.{$projectName}" . PHP_EOL;
     exit;
 }
 $projectConf = $conf['projects'][$projectName];
@@ -93,7 +92,7 @@ $remoteName = !empty($opt['remote']) ? (is_array($opt['remote']) ? $opt['remote'
 if (empty($remoteName)) {
     echo '没有指定 remote' . PHP_EOL;
     echo '使用 --remote=REMOTE 指定' . PHP_EOL;
-    echo "或 vim ~/.websync 配置 projects.{$projectName}.remote" . PHP_EOL;
+    echo "或 vim ~/.websync.php 配置 projects.{$projectName}.remote" . PHP_EOL;
     exit;
 }
 $remoteName = array_unique($remoteName);
@@ -103,7 +102,7 @@ $remoteConf = $conf['remote'];
 foreach ($remoteName as $curRemoteName) {
     if (!isset($remoteConf[$curRemoteName])) {
         echo "远程配置 {$remoteName} 不存在" . PHP_EOL;
-        echo 'vim ~/.websync 配置 remote' . PHP_EOL;
+        echo 'vim ~/.websync.php 配置 remote' . PHP_EOL;
         exit;
     }
 }
