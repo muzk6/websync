@@ -6,22 +6,36 @@
  * 项目文件同步
  */
 
-$opt = getopt('', ['src::', 'dst::', 'force::', 'test::', 'help::'], $ind);
+$opt = getopt('h::v::t::', ['src::', 'dst::', 'remote::',
+    'force::', 'test::', 'init::', 'help::',
+]);
 
-$help = isset($opt['help']) ?: false;
-if ($help) {
+if (isset($opt['h']) || isset($opt['help'])) {
     echo <<<DOC
 USAGE
-    websync [OPTION...] [SCOPE]
+    websync [OPTION...]
 OPTION
+    -t
     --test
-        测试模式，只打印而不执行命令
+        测试模式，只打印而不执行同步命令
     --src=
         本地源路径
     --dst=
         远程目的路径
+    --remote
+        查看所有远程服务器配置
+    --remote=
+        指定远程服务器，多个服务器就用多个参数指定
+        忽略配置项 project 里的 remote 配置项
     --force 
-        项目没有 .git 时强制同步
+        项目没有 .git 时可以强制同步
+    --init
+        初始化配置文件
+    -v
+        输出 rsync 命令
+    -h
+    --help
+        帮助
 SCOPE
     域，对应配置文件里的 scope
     如果不指定[SCOPE]，默认会从项目目录上一层的 .websyncscope 里取
@@ -30,34 +44,81 @@ DOC;
     exit;
 }
 
+// 配置文件路径
+$pathConf = getenv('HOME') . '/.websync';
+
+// 初始化配置
+if (isset($opt['init'])) {
+    if (file_exists($pathConf)) {
+        echo "{$pathConf} 已经存在" . PHP_EOL;
+        exit;
+    }
+
+    system(sprintf('cp %s %s', __DIR__ . '/.websync.example.php', $pathConf));
+
+    echo '配置文件初始化完成，请继续编辑配置:' . PHP_EOL;
+    echo 'vim ~/.websync' . PHP_EOL;
+    exit;
+}
+
+// 检查配置文件
+if (!file_exists($pathConf)) {
+    echo '请先初始化并编辑配置文件:' . PHP_EOL;
+    echo 'websync --init' . PHP_EOL;
+    exit;
+}
+$conf = include($pathConf);
+
+// 显示远程配置
+if (isset($opt['remote']) && $opt['remote'] === false) {
+    if (empty($conf['remote'])) {
+        echo '远程配置不存在' . PHP_EOL;
+        exit;
+    }
+
+    print_r($conf['remote']);
+    exit;
+}
+
+$pwd = getcwd();
+
+// 检查项目配置 projects
+$projectName = basename($pwd);
+if (!isset($conf['projects'][$projectName])) {
+    echo "不存在项目配置 {$projectName}" . PHP_EOL;
+    echo "vim ~/.websync 配置 projects.{$projectName}" . PHP_EOL;
+    exit;
+}
+$projectConf = $conf['projects'][$projectName];
+
+// 检查有无为项目指定 remote
+$remoteName = !empty($opt['remote']) ? $opt['remote'] : $projectConf['remote'];
+if (empty($remoteName)) {
+    echo '没有指定 remote' . PHP_EOL;
+    echo '使用 --remote=REMOTE 指定' . PHP_EOL;
+    echo "或 vim ~/.websync 配置 projects.{$projectName}.remote" . PHP_EOL;
+    exit;
+}
+$remoteName = array_unique($remoteName);
+
+// 检查 remote 是否存在
+$remoteConf = $conf['remote'];
+foreach ($remoteName as $curRemoteName) {
+    if (!isset($remoteConf[$curRemoteName])) {
+        echo "远程配置 {$remoteName} 不存在" . PHP_EOL;
+        echo 'vim ~/.websync 配置 remote' . PHP_EOL;
+        exit;
+    }
+}
+
+// 强制同步非 git 项目
 $force = isset($opt['force']) ?: false;
 if (!file_exists('.git') && !$force) {
     echo '项目不支持 git，强制同步可使用参数 --force' . PHP_EOL;
     exit;
 }
 
-$conf = require(__DIR__ . '/config.php');
-$pwd = getcwd();
-
-if (isset($argv[$ind])) {
-    $scope = $argv[$ind];
-} elseif (file_exists($websyncscope = realpath($pwd . '/../.websyncscope'))) {
-    $scope = trim(file_get_contents($websyncscope));
-} else {
-    echo '请指定[SCOPE]，或者在上一层目录里新建 .websyncscope 以 [SCOPE] 为内容' . PHP_EOL;
-    exit;
-}
-
-$scopeConf = &$conf[$scope];
-if (!isset($scopeConf)) {
-    echo "不存在域 {$scope}";
-    exit;
-}
-
-$src = isset($opt['src']) ? $opt['src'] : getcwd() . '/';
-$dst = isset($opt['dst']) ? $opt['dst'] : $scopeConf['dst_root'] . '/' . basename($src);
-
-// .gitignore 里的忽略列表
+// 用命令查询 .gitignore 里的忽略列表
 $ignores = [];
 if (file_exists('.gitignore')) {
     exec('git clean -ndX', $ignoresRaw);
@@ -66,33 +127,45 @@ if (file_exists('.gitignore')) {
     }
 }
 
-// 配置文件里的忽略列表
-foreach ($scopeConf['ignore'] as $v) {
-    $ignores[] = $v;
+// 配置文件里的全局忽略列表
+if (!empty($conf['global']['ignore'])) {
+    $ignores = array_merge($ignores, $conf['global']['ignore']);
 }
 
-// 忽略文件的参数
+// 配置文件里的项目忽略列表
+if (!empty($projectConf['ignore'])) {
+    $ignores = array_merge($ignores, $projectConf['ignore']);
+}
+
+// 构造用于忽略文件的参数
 $excludes = [];
 foreach ($ignores as $ignore) {
     $ignore = trim($ignore);
-    if (strpos($ignore, '#') !== false) {
-        continue;
-    }
-
     $excludes[] = "--exclude={$ignore}";
 }
 $excludes = implode(' ', $excludes);
 
-// 重置文件权限
-$chown = '';
-if (isset($scopeConf['chown'])) {
-    $chown = "--chown={$scopeConf['chown']}";
-}
+foreach ($remoteName as $curRemoteName) {
+    // 当前使用的远程配置
+    $curRemoteConf = $remoteConf[$curRemoteName];
 
-$cmd = "rsync -avz --delete --progress {$chown} {$excludes} {$src} {$scopeConf['remote']}:{$dst}";
-echo $cmd . PHP_EOL;
+    $src = isset($opt['src']) ? $opt['src'] : $pwd . '/';
+    $dst = isset($opt['dst']) ? $opt['dst'] : $curRemoteConf['dst'] . '/' . $projectName;
 
-// 非测试模式才执行命令
-if (!isset($opt['test'])) {
-    system($cmd);
+    // 重置文件权限
+    $chown = '';
+    if (!empty($curRemoteConf['chown'])) {
+        $chown = "--chown={$curRemoteConf['chown']}";
+    }
+
+    $cmd = "rsync -avz --delete --progress {$chown} {$excludes} {$src} {$curRemoteConf['hostname']}:{$dst}";
+
+    if (isset($opt['t']) || isset($opt['test']) || isset($opt['v'])) {
+        echo $cmd . PHP_EOL;
+    }
+
+    // 非测试模式才执行命令
+    if (!isset($opt['t']) && !isset($opt['test'])) {
+        system($cmd);
+    }
 }
