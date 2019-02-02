@@ -92,7 +92,7 @@ if (!isset($conf['projects'][$projectName])) {
 $projectConf = $conf['projects'][$projectName];
 
 // 检查有无为项目指定 remote
-$remoteName = !empty($opt['remote']) ? $opt['remote'] : $projectConf['remote'];
+$remoteName = !empty($opt['remote']) ? (is_array($opt['remote']) ? $opt['remote'] : [$opt['remote']]) : $projectConf['remote'];
 if (empty($remoteName)) {
     echo '没有指定 remote' . PHP_EOL;
     echo '使用 --remote=REMOTE 指定' . PHP_EOL;
