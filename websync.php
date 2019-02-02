@@ -25,7 +25,7 @@ OPTION
     --remote
         查看所有远程服务器配置
     --remote=
-        指定远程服务器，多个服务器就用多个参数指定
+        指定远程服务器，多个服务器就用多个 --remote= 参数指定
         忽略配置项 project 里的 remote 配置项
     --force 
         项目没有 .git 时可以强制同步
@@ -36,9 +36,6 @@ OPTION
     -h
     --help
         帮助
-SCOPE
-    域，对应配置文件里的 scope
-    如果不指定[SCOPE]，默认会从项目目录上一层的 .websyncscope 里取
 DOC;
     echo PHP_EOL;
     exit;
