@@ -3,6 +3,8 @@
 return [
     // 全局配置
     'global' => [
+        // 不排除的列表
+        'include' => [],
         // 排除列表
         'exclude' => [
             '.git',
@@ -25,9 +27,10 @@ return [
         'project1' => [
             // 同步到指定的远程服务器
             'remote' => ['host1'],
+            // 不排除的列表
+            'include' => [],
             // 排除列表
-            'exclude' => [
-            ],
+            'exclude' => [],
         ],
     ]
 ];

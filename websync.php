@@ -114,6 +114,25 @@ if (!file_exists('.git') && !$force) {
     exit;
 }
 
+// 配置文件里的 全局-非排除 列表
+$include = [];
+if (!empty($conf['global']['include'])) {
+    $include = array_merge($include, $conf['global']['include']);
+}
+
+// 配置文件里的 项目-非排除 列表
+if (!empty($projectConf['include'])) {
+    $include = array_merge($include, $projectConf['include']);
+}
+
+// 构造用于非排除文件的参数
+$includeParam = [];
+foreach ($include as $v) {
+    $v = trim($v);
+    $includeParam[] = "--include={$v}";
+}
+$includeParam = implode(' ', $includeParam);
+
 // 用命令查询 .gitignore 里的忽略列表
 $ignores = [];
 if (file_exists('.gitignore')) {
@@ -134,12 +153,12 @@ if (!empty($projectConf['exclude'])) {
 }
 
 // 构造用于排除文件的参数
-$excludes = [];
+$excludeParam = [];
 foreach ($ignores as $ignore) {
     $ignore = trim($ignore);
-    $excludes[] = "--exclude={$ignore}";
+    $excludeParam[] = "--exclude={$ignore}";
 }
-$excludes = implode(' ', $excludes);
+$excludeParam = implode(' ', $excludeParam);
 
 foreach ($remote as $curRemoteName) {
     // 当前使用的远程配置
@@ -154,7 +173,7 @@ foreach ($remote as $curRemoteName) {
         $chown = "--chown={$curRemoteConf['chown']}";
     }
 
-    $cmd = "rsync -avz --delete --progress {$chown} {$excludes} {$src} {$curRemoteConf['hostname']}:{$dst}";
+    $cmd = "rsync -avz --delete --progress {$chown} {$includeParam} {$excludeParam} {$src} {$curRemoteConf['hostname']}:{$dst}";
 
     if (isset($opt['t']) || isset($opt['test']) || isset($opt['v'])) {
         echo $cmd . PHP_EOL;
