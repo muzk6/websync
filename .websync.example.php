@@ -3,8 +3,8 @@
 return [
     // 全局配置
     'global' => [
-        // 忽略列表
-        'ignore' => [
+        // 排除列表
+        'exclude' => [
             '.git',
         ],
     ],
@@ -25,8 +25,8 @@ return [
         'project1' => [
             // 同步到指定的远程服务器
             'remote' => ['host1'],
-            // 忽略列表
-            'ignore' => [
+            // 排除列表
+            'exclude' => [
             ],
         ],
     ]

@@ -123,17 +123,17 @@ if (file_exists('.gitignore')) {
     }
 }
 
-// 配置文件里的全局忽略列表
-if (!empty($conf['global']['ignore'])) {
-    $ignores = array_merge($ignores, $conf['global']['ignore']);
+// 配置文件里的 全局-排除 列表
+if (!empty($conf['global']['exclude'])) {
+    $ignores = array_merge($ignores, $conf['global']['exclude']);
 }
 
-// 配置文件里的项目忽略列表
-if (!empty($projectConf['ignore'])) {
-    $ignores = array_merge($ignores, $projectConf['ignore']);
+// 配置文件里的 项目-排除 列表
+if (!empty($projectConf['exclude'])) {
+    $ignores = array_merge($ignores, $projectConf['exclude']);
 }
 
-// 构造用于忽略文件的参数
+// 构造用于排除文件的参数
 $excludes = [];
 foreach ($ignores as $ignore) {
     $ignore = trim($ignore);
