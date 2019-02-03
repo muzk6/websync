@@ -165,7 +165,7 @@ foreach ($remote as $curRemoteName) {
     $curRemoteConf = $remoteConf[$curRemoteName];
 
     $src = $pwd . '/';
-    $dst = $curRemoteConf['dst'] . '/' . $projectName;
+    $dst = $curRemoteConf['dst'] . '/' . (!empty($projectConf['alias']) ? $projectConf['alias'] : $projectName);
 
     // 重置文件权限
     $chown = '';
