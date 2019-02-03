@@ -3,9 +3,10 @@
 
 /**
  * Web 项目文件同步
+ * 所有 project 以 remote 为对象，project 里的配置项不能在 remote 里有，也不能在命令行指定
  */
 
-$opt = getopt('h::v::t::', ['src::', 'dst::', 'remote::',
+$opt = getopt('h::v::t::', ['remote::',
     'force::', 'test::', 'init::', 'help::',
 ]);
 
@@ -17,15 +18,12 @@ OPTION
     -t
     --test
         测试模式，只打印而不执行同步命令
-    --src=
-        本地源路径
-    --dst=
-        远程目的路径
     --remote
         查看所有远程服务器配置
     --remote=
         指定远程服务器，多个服务器就用多个 --remote= 参数指定
-        忽略配置项 project 里的 remote 配置项
+        可以不需要在配置文件里的配置 projects
+        优先级比配置文件指定的高
     --force 
         项目没有 .git 时可以强制同步
     --init
@@ -80,28 +78,30 @@ $pwd = getcwd();
 
 // 检查项目配置 projects
 $projectName = basename($pwd);
-if (!isset($conf['projects'][$projectName])) {
+if (empty($opt['remote']) && !isset($conf['projects'][$projectName])) {
     echo "不存在项目配置 {$projectName}" . PHP_EOL;
     echo "vim ~/.websync.php 配置 projects.{$projectName}" . PHP_EOL;
     exit;
 }
-$projectConf = $conf['projects'][$projectName];
+$projectConf = $conf['projects'][$projectName] ?? [];
 
 // 检查有无为项目指定 remote
-$remoteName = !empty($opt['remote']) ? (is_array($opt['remote']) ? $opt['remote'] : [$opt['remote']]) : $projectConf['remote'];
-if (empty($remoteName)) {
+$remote = !empty($opt['remote'])
+    ? (is_array($opt['remote']) ? $opt['remote'] : [$opt['remote']])
+    : ($projectConf['remote'] ?? '');
+if (empty($remote)) {
     echo '没有指定 remote' . PHP_EOL;
     echo '使用 --remote=REMOTE 指定' . PHP_EOL;
     echo "或 vim ~/.websync.php 配置 projects.{$projectName}.remote" . PHP_EOL;
     exit;
 }
-$remoteName = array_unique($remoteName);
+$remote = array_unique($remote);
 
 // 检查 remote 是否存在
 $remoteConf = $conf['remote'];
-foreach ($remoteName as $curRemoteName) {
+foreach ($remote as $curRemoteName) {
     if (!isset($remoteConf[$curRemoteName])) {
-        echo "远程配置 {$remoteName} 不存在" . PHP_EOL;
+        echo "远程配置 {$curRemoteName} 不存在" . PHP_EOL;
         echo 'vim ~/.websync.php 配置 remote' . PHP_EOL;
         exit;
     }
@@ -141,12 +141,12 @@ foreach ($ignores as $ignore) {
 }
 $excludes = implode(' ', $excludes);
 
-foreach ($remoteName as $curRemoteName) {
+foreach ($remote as $curRemoteName) {
     // 当前使用的远程配置
     $curRemoteConf = $remoteConf[$curRemoteName];
 
-    $src = isset($opt['src']) ? $opt['src'] : $pwd . '/';
-    $dst = isset($opt['dst']) ? $opt['dst'] : $curRemoteConf['dst'] . '/' . $projectName;
+    $src = $pwd . '/';
+    $dst = $curRemoteConf['dst'] . '/' . $projectName;
 
     // 重置文件权限
     $chown = '';
