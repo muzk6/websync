@@ -160,11 +160,7 @@ foreach ($remote as $curRemoteName) {
     if ($isTest) {
         echo $cmd . PHP_EOL;
         system(preg_replace('/^rsync/', 'rsync -n', $cmd));
-        exit;
-    }
-
-    // 非测试模式才执行命令
-    if (!$isTest) {
+    } else {
         system($cmd);
     }
 }
