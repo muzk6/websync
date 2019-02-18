@@ -149,7 +149,16 @@ foreach ($remote as $curRemoteName) {
     $curRemoteConf = $remoteConf[$curRemoteName];
 
     $src = $pwd . '/';
-    $dst = $curRemoteConf['dst'] . '/' . (!empty($projectConf['alias']) ? $projectConf['alias'] : $projectName);
+
+    $curProjectName = $projectName;
+    if (!empty($projectConf['alias'])) {
+        if (is_string($projectConf['alias'])) {
+            $curProjectName = $projectConf['alias'];
+        } elseif (isset($projectConf['alias'][$curRemoteName])) {
+            $curProjectName = $projectConf['alias'][$curRemoteName];
+        }
+    }
+    $dst = $curRemoteConf['dst'] . '/' . $curProjectName;
 
     // 重置文件权限
     $chown = '';
