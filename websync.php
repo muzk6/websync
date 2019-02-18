@@ -24,12 +24,8 @@ OPTION
         指定远程服务器，多个服务器就用多个 --remote= 参数指定
         可以不需要在配置文件里的配置 projects
         优先级比配置文件指定的高
-    --force 
-        项目没有 .git 时可以强制同步
     --init
         初始化配置文件
-    -v
-        输出 rsync 命令
     -h
     --help
         帮助
@@ -107,13 +103,6 @@ foreach ($remote as $curRemoteName) {
     }
 }
 
-// 强制同步非 git 项目
-$force = isset($opt['force']) ?: false;
-if (!file_exists('.git') && !$force) {
-    echo '项目不支持 git，强制同步可使用参数 --force' . PHP_EOL;
-    exit;
-}
-
 // 配置文件里的 全局-非排除 列表
 $include = [];
 if (!empty($conf['global']['include'])) {
@@ -133,16 +122,8 @@ foreach ($include as $v) {
 }
 $includeParam = implode(' ', $includeParam);
 
-// 用命令查询 .gitignore 里的忽略列表
-$ignores = [];
-if (file_exists('.gitignore')) {
-    exec('git clean -ndX', $ignoresRaw);
-    foreach ($ignoresRaw as $v) {
-        $ignores[] = trim(str_replace('Would remove ', '', $v));
-    }
-}
-
 // 配置文件里的 全局-排除 列表
+$ignores = [];
 if (!empty($conf['global']['exclude'])) {
     $ignores = array_merge($ignores, $conf['global']['exclude']);
 }
@@ -175,12 +156,15 @@ foreach ($remote as $curRemoteName) {
 
     $cmd = "rsync -avz --delete --progress {$chown} {$includeParam} {$excludeParam} {$src} {$curRemoteConf['hostname']}:{$dst}";
 
-    if (isset($opt['t']) || isset($opt['test']) || isset($opt['v'])) {
+    $isTest = isset($opt['t']) || isset($opt['test']);
+    if ($isTest) {
         echo $cmd . PHP_EOL;
+        system(preg_replace('/^rsync/', 'rsync -n', $cmd));
+        exit;
     }
 
     // 非测试模式才执行命令
-    if (!isset($opt['t']) && !isset($opt['test'])) {
+    if (!$isTest) {
         system($cmd);
     }
 }
