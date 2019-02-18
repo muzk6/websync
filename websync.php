@@ -31,6 +31,9 @@ OPTION
         帮助
 DOC;
     echo PHP_EOL;
+
+    echo 'CONFIG' . PHP_EOL;
+    echo file_get_contents(__DIR__ . '/.websync.example.php') . PHP_EOL;
     exit;
 }
 
