@@ -170,9 +170,9 @@ foreach ($remote as $curRemoteName) {
 
     $isTest = isset($opt['t']) || isset($opt['test']);
     if ($isTest) {
+        $cmd = preg_replace('/^rsync/', 'rsync -n', $cmd);
         echo $cmd . PHP_EOL;
-        system(preg_replace('/^rsync/', 'rsync -n', $cmd));
-    } else {
-        system($cmd);
     }
+
+    system($cmd);
 }
