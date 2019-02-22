@@ -160,8 +160,8 @@ foreach ($remote as $curRemoteName) {
     }
     $dst = $curRemoteConf['dst'] . '/' . $curProjectName;
 
-    // 重置文件权限
-    $chown = '';
+    // 重置文件所属
+    $chown = '--chown=root:root';
     if (!empty($curRemoteConf['chown'])) {
         $chown = "--chown={$curRemoteConf['chown']}";
     }
