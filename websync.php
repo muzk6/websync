@@ -2,13 +2,10 @@
 <?php
 
 /**
- * Web 项目文件同步
- * 所有 project 以 remote 为对象，project 里的配置项不能在 remote 里有，也不能在命令行指定
+ * 基于 rsync 的本地、远程 双向同步工具
  */
 
-$opt = getopt('h::v::t::', ['remote::',
-    'force::', 'test::', 'init::', 'help::',
-], $ind);
+$opt = getopt('h::t::', ['init::', 'test::', 'help::'], $ind);
 
 $isHelp = isset($opt['h']) || isset($opt['help']);
 $isInit = isset($opt['init']);
@@ -18,31 +15,23 @@ $hostname = $argv[$ind + 1] ?? null;
 
 if ($isHelp) {
     echo <<<DOC
+基于 rsync 的本地、远程 双向同步工具
 USAGE
-    websync [OPTION...] [push/pull]
+    websync [OPTION...] [push/pull] [hostname1]
 ARGV
-    push 本地推上远程(默认)
-    pull 远程拉入本地
+    push [hostname1[,hostname2]] 本地推上远程(默认动作)，没有指定 hostname 时读取配置
+    pull [hostname1] 远程拉入本地，没有指定 hostname 时读取配置
 OPTION
+    --init
+        初始化配置文件
     -t
     --test
         测试模式，只打印而不执行同步命令
-    --remote
-        查看所有远程服务器配置
-    --remote=
-        指定远程服务器，多个服务器就用多个 --remote= 参数指定
-        可以不需要在配置文件里的配置 projects
-        优先级比配置文件指定的高
-    --init
-        初始化配置文件
     -h
     --help
         帮助
 DOC;
     echo PHP_EOL;
-
-    echo 'CONFIG' . PHP_EOL;
-    echo file_get_contents(__DIR__ . '/.websync.example.php') . PHP_EOL;
     exit;
 }
 
@@ -56,10 +45,21 @@ if ($isInit) {
         exit;
     }
 
-    system(sprintf('cp %s %s', __DIR__ . '/.websyncrc.example.php', $pathConf));
+    $sampleConf = file_get_contents(__DIR__ . '/.websyncrc.example.php');
 
-    echo '配置文件初始化完成，请继续编辑配置:' . PHP_EOL;
-    echo 'vim .websyncrc.php' . PHP_EOL;
+    $sampleConf = str_replace('hostname1', readline("远程服务器名: [hostname1]\n") ?: 'hostname1', $sampleConf);
+    $sampleConf = str_replace('websync@host', readline("远程SSH: [websync@host]\n") ?: 'websync@host', $sampleConf);
+    $sampleConf = str_replace('22', readline("远程SSH 端口: [22]\n") ?: 22, $sampleConf);
+    $sampleConf = str_replace('/path/to/', readline("远程目标目录: [/path/to/]\n") ?: '/path/to/', $sampleConf);
+    $sampleConf = str_replace('websync:websync', readline("远程文件所属: [websync:websync]\n") ?: 'websync:websync', $sampleConf);
+
+    var_dump($sampleConf);
+    if (strtolower(readline("请确认 [Y/n]\n") ?: 'Y') != 'y') {
+        exit;
+    }
+
+    file_put_contents($pathConf, $sampleConf);
+    echo "{$pathConf} 配置文件初始化完成，可随时修改" . PHP_EOL;
     exit;
 }
 
@@ -116,7 +116,7 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
     system($cmd);
 };
 
-// 执行 action
+// 执行动作
 switch ($action) {
     case 'push':
         if ($hostname) {
@@ -127,24 +127,28 @@ switch ($action) {
 
         foreach ($hostnameList as $hostname) {
             $hostname = trim($hostname);
-            $execRsync($hostname, function ($localPath, $remotePath) use ($hostname) {
-                // 重置文件归属
-                $chown = '--chown=websync:websync';
-                if (!empty($conf['remotes'][$hostname]['chown'])) {
-                    $chown = "--chown={$conf['remotes'][$hostname]['chown']}";
-                }
+            $execRsync($hostname,
+                function ($localPath, $remotePath) use ($hostname) {
+                    // 重置文件归属
+                    $chown = '--chown=websync:websync';
+                    if (!empty($conf['remotes'][$hostname]['chown'])) {
+                        $chown = "--chown={$conf['remotes'][$hostname]['chown']}";
+                    }
 
-                return [$chown, $localPath, $remotePath];
-            });
+                    return [$chown, $localPath, $remotePath];
+                }
+            );
         }
         break;
     case 'pull':
-        $execRsync($hostname ? trim($hostname) : $conf['pull'], function ($localPath, $remotePath) {
-            return ['', $remotePath, $localPath];
-        });
+        $execRsync($hostname ? trim($hostname) : $conf['pull'],
+            function ($localPath, $remotePath) {
+                return ['', $remotePath, $localPath];
+            }
+        );
         break;
     default:
-        echo '不存在的 action, websync -h 查看帮助' . PHP_EOL;
+        echo '不存在的动作，请使用 websync -h 查看帮助' . PHP_EOL;
         exit;
         break;
 }

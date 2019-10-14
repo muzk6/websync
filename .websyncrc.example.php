@@ -13,13 +13,14 @@ return [
     'remotes' => [
         // 自定义服务器名称
         'hostname1' => [
+            // SSH
             '@' => 'websync@host',
-            // 远程目的根目录
+            // rsync -e, 例如指定 ssh 端口
+            'command' => 'ssh -p 22',
+            // 远程目标目录
             'path' => '/path/to/',
             // rsync --chown=, 对所有同步的文件进行 chown, 不设置此项或值为空就不修改文件权限
             'chown' => 'websync:websync',
-            // rsync -e, 例如指定 ssh 端口
-            'command' => 'ssh -p 22',
         ],
     ],
     // 远程同步到本地
