@@ -52,15 +52,15 @@ if ($isInit) {
 
     $sampleConf = file_get_contents(__DIR__ . '/.websyncrc.example.php');
 
-    $readHostname = readline("远程服务器名: [hostname1]\n");
+    $readHostname = readline("远程服务器名: [hostname1] \n");
     $sampleConf = str_replace('hostname1', $readHostname ?: 'hostname1', $sampleConf);
-    $sampleConf = str_replace("websync@host", readline("远程SSH: [websync@{$readHostname}]\n") ?: "websync@{$readHostname}", $sampleConf);
-    $sampleConf = str_replace('22', readline("远程SSH 端口: [22]\n") ?: 22, $sampleConf);
-    $sampleConf = str_replace('/path/to/', readline("远程目标目录: [/path/to/]\n") ?: '/path/to/', $sampleConf);
-    $sampleConf = str_replace('websync:websync', readline("远程文件所属: [websync:websync]\n") ?: 'websync:websync', $sampleConf);
+    $sampleConf = str_replace('/path/to/', readline("远程目标目录: [/path/to/] \n") ?: '/path/to/', $sampleConf);
+    $sampleConf = str_replace("websync@host", readline("远程SSH: [websync@{$readHostname}] \n") ?: "websync@{$readHostname}", $sampleConf);
+    $sampleConf = str_replace('22', readline("远程SSH 端口: [22] \n") ?: 22, $sampleConf);
+    $sampleConf = str_replace('websync:websync', readline("远程文件所属: [websync:websync] \n") ?: 'websync:websync', $sampleConf);
 
     echo $sampleConf . PHP_EOL;
-    if (strtolower(readline("请确认 [Y/n]\n") ?: 'Y') != 'y') {
+    if (strtolower(readline("请确认 [Y/n] \n") ?: 'Y') != 'y') {
         exit;
     }
 
