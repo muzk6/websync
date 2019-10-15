@@ -5,6 +5,11 @@
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
+if (version_compare(phpversion(), '7.1', '<')) {
+    echo 'PHP版本必须 >=7.1' . PHP_EOL;
+    exit;
+}
+
 $opt = getopt('h::t::', ['init::', 'test::', 'help::'], $ind);
 
 $isHelp = isset($opt['h']) || isset($opt['help']);
@@ -47,13 +52,14 @@ if ($isInit) {
 
     $sampleConf = file_get_contents(__DIR__ . '/.websyncrc.example.php');
 
-    $sampleConf = str_replace('hostname1', readline("远程服务器名: [hostname1]\n") ?: 'hostname1', $sampleConf);
-    $sampleConf = str_replace('websync@host', readline("远程SSH: [websync@host]\n") ?: 'websync@host', $sampleConf);
+    $readHostname = readline("远程服务器名: [hostname1]\n");
+    $sampleConf = str_replace('hostname1', $readHostname ?: 'hostname1', $sampleConf);
+    $sampleConf = str_replace("websync@host", readline("远程SSH: [websync@{$readHostname}]\n") ?: "websync@{$readHostname}", $sampleConf);
     $sampleConf = str_replace('22', readline("远程SSH 端口: [22]\n") ?: 22, $sampleConf);
     $sampleConf = str_replace('/path/to/', readline("远程目标目录: [/path/to/]\n") ?: '/path/to/', $sampleConf);
     $sampleConf = str_replace('websync:websync', readline("远程文件所属: [websync:websync]\n") ?: 'websync:websync', $sampleConf);
 
-    var_dump($sampleConf);
+    echo $sampleConf . PHP_EOL;
     if (strtolower(readline("请确认 [Y/n]\n") ?: 'Y') != 'y') {
         exit;
     }
