@@ -1,6 +1,8 @@
 <?php
 
 return [
+    // 要求 websync 的版本号
+    'version' => ['2.1', '>='],
     // rsync --include=, 不排除的列表
     'include' => [],
     // rsync --exclude=, 排除列表
@@ -17,7 +19,7 @@ return [
             '@' => 'websync@host',
             // rsync -e, 例如指定 ssh 端口
             'command' => 'ssh -p 22',
-            // 远程目标目录
+            // 远程根目录
             'path' => '/path/to/',
             // rsync --chown=, 对所有同步的文件进行 chown, 不设置此项或值为空就不修改文件权限
             'chown' => 'websync:websync',
