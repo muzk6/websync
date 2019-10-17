@@ -5,19 +5,21 @@
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
-const VERSION = '2.2';
+const VERSION = '2.2.1'; // 程序版本
+const VERSION_CONFIG = '2.2'; // 配置文件版本
 
 if (version_compare(phpversion(), '7.1', '<')) {
     echo 'PHP版本必须 >=7.1' . PHP_EOL;
     exit;
 }
 
-$opt = getopt('h::t::g::', ['init::', 'test::', 'help::', 'global::'], $ind);
+$opt = getopt('h::t::g::', ['init::', 'test::', 'help::', 'global::', 'version::'], $ind);
 
 $isHelp = isset($opt['h']) || isset($opt['help']);
 $isInit = isset($opt['init']);
 $isTest = isset($opt['t']) || isset($opt['test']);
 $isGlobal = isset($opt['g']) || isset($opt['global']);
+$isVersion = isset($opt['version']);
 $action = $argv[$ind] ?? 'push';
 $hostname = $argv[$ind + 1] ?? null;
 
@@ -26,25 +28,56 @@ if ($isHelp) {
     if ($action == 'config') {
         echo file_get_contents(__DIR__ . '/.websyncrc.example.php') . PHP_EOL;
     } else {
+        echo PHP_EOL;
         echo <<<DOC
 基于 rsync 的本地、远程 双向同步工具
-USAGE
-    websync [OPTION...] [push/pull] [hostname1]
-ACTION
-    push [hostname1[,hostname2]] 本地同步到远程(默认动作)，没有指定 hostname 时读取配置
-    pull [hostname1] 远程同步到本地，没有指定 hostname 时读取配置
-OPTION
-    --init 初始化配置文件
-    -t, --test 测试模式，只打印而不执行同步命令
-    -g, --global config/remote 全局配置
-        config 查看全局配置文件的路径
-        remote 新增/编辑 全局远程服务器
-    -h, --help [config] 查看帮助
-        config 查看配置说明
+
+USAGE:
+    websync push [hostname1[,hostname2]]
+    本地->远程，默认动作，没有指定 hostname 时读取配置
+    
+    websync pull [hostname1]
+    远程->本地，没有指定 hostname 时读取配置
+    
+    websync --init
+    初始化配置文件
+    
+    websync -t
+    测试模式，只打印而不执行同步命令
+    
+    websync -g config
+    查看全局配置文件的路径
+    
+    websync -g remote
+    设置全局配置里的远程服务器
+    
+    websync -h config
+    查看配置说明
+    
+    websync -h
+    查看帮助
+    
+    websync --version
+    查看 websync 版本
+   
+OPTIONS:
+    --init          初始化配置文件
+    -t, --test      测试模式
+    -g, --global    全局配置
+    -h, --help      帮助
+    --version       版本
 DOC;
+        echo PHP_EOL;
         echo PHP_EOL;
     }
 
+    exit;
+}
+
+// 查看程序版本
+if ($isVersion) {
+    echo 'websync version ' . VERSION . PHP_EOL;
+    echo '.websyncrc.php version minimum support ' . VERSION_CONFIG . PHP_EOL;
     exit;
 }
 
@@ -167,7 +200,7 @@ switch ($action) {
         );
         break;
     default:
-        echo '不存在的动作，请使用 websync -h 查看帮助' . PHP_EOL;
+        echo '参数错误，请参考 websync -h' . PHP_EOL;
         exit;
         break;
 }
@@ -259,7 +292,7 @@ function setGlobal(string $action, $opt = [])
 
             break;
         default:
-            echo '全局配置仅支持: remote' . PHP_EOL;
+            echo '参数错误，请参考 websync -h' . PHP_EOL;
             break;
     }
 }
@@ -273,7 +306,7 @@ function checkVersion(array $conf)
 {
     if (empty($conf['version'])
         || !is_string($conf['version'])
-        || !version_compare(VERSION, $conf['version'], '>=')) {
+        || !version_compare($conf['version'], VERSION_CONFIG, '>=')) {
         echo '配置文件版本过低，请先备份好再重新生成配置文件' . PHP_EOL;
         return false;
     }
