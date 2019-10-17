@@ -5,7 +5,7 @@
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
-const VERSION = '2.2.1'; // 程序版本
+const VERSION = '2.2.2'; // 程序版本
 const VERSION_CONFIG = '2.2'; // 配置文件版本
 
 if (version_compare(phpversion(), '7.1', '<')) {
@@ -134,8 +134,7 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
     // 检查 remote 是否存在
     $curRemoteConf = &$conf['remotes'][$hostname];
     if (!isset($curRemoteConf)) { // 先检查当前目录的配置
-        $pathGlobal = getenv('HOME') . '/.websyncrc.php';
-        $globalConf = is_file($pathGlobal) ? include($pathGlobal) : [];
+        $globalConf = getGlobalConfig();
 
         $curRemoteConf = &$globalConf['remotes'][$hostname];
         if (!isset($curRemoteConf)) { // 再检查全局配置
@@ -209,24 +208,18 @@ switch ($action) {
  * 初始化配置
  * @param string $pathConf
  */
-function initSetting(string $pathConf)
+function initSetting(string $pathConf): void
 {
     if (file_exists($pathConf)) {
         echo "{$pathConf} 已经存在" . PHP_EOL;
         exit;
     }
 
-    // 远程服务器名
-    $hostname = readline("远程服务器名: [hostname1] \n");
+    $globalConf = getGlobalConfig();
+    $hostname = inputHostname($globalConf);
 
     // 全局配置: 读取 全局配置-远程服务器 如果没有全局配置则自动新建
-    $pathGlobal = getenv('HOME') . '/.websyncrc.php';
-    if (is_file($pathGlobal)) {
-        $globalConf = include($pathGlobal);
-        if (!isset($globalConf['remotes'][$hostname])) {
-            setGlobal('remote', ['hostname' => $hostname]);
-        }
-    } else {
+    if (!isset($globalConf['remotes'][$hostname])) {
         setGlobal('remote', ['hostname' => $hostname]);
     }
 
@@ -252,24 +245,34 @@ function initSetting(string $pathConf)
  * @param string $action
  * @param array $opt
  */
-function setGlobal(string $action, $opt = [])
+function setGlobal(string $action, $opt = []): void
 {
-    $pathGlobal = getenv('HOME') . '/.websyncrc.php';
-    $globalConf = is_file($pathGlobal) ? include($pathGlobal) : [];
-
     switch ($action) {
         case 'remote':
-            $readHostname = $opt['hostname'] ?? readline("远程服务器名: [hostname1] \n");
-            if (isset($globalConf['remotes'][$readHostname])) {
-                if (strtolower(readline("{$readHostname} 配置已存在，是不继续修改？[Y/n] \n") ?: 'Y') != 'y') {
+            $globalConf = getGlobalConfig();
+            $isSelect = false; // 是否以选择方式得到服务器名
+
+            if (isset($opt['hostname'])) {
+                // 已经指定远程服务器名
+                $hostname = $opt['hostname'];
+            } else {
+                // 未指定时由用户 选择/输入
+                $hostname = inputHostname($globalConf, $isSelect);
+            }
+
+            // 检查配置是否存在并询问修改与否
+            if (isset($globalConf['remotes'][$hostname])) {
+                if (!$isSelect
+                    && strtolower(readline("{$hostname} 配置已存在，是否继续修改？[Y/n] \n") ?: 'Y') != 'y') {
                     exit;
                 }
-                $globalHost = $globalConf['remotes'][$readHostname];
+                $globalHost = $globalConf['remotes'][$hostname];
             } else {
                 $globalHost = [];
             }
 
-            $ssh = $globalHost['@'] ?? "websync@{$readHostname}";
+            // 修改配置
+            $ssh = $globalHost['@'] ?? "websync@{$hostname}";
             $globalHost['@'] = readline("远程SSH: [{$ssh}] \n") ?: $ssh;
 
             $command = $globalHost['command'] ?? 'ssh -p 22';
@@ -281,12 +284,15 @@ function setGlobal(string $action, $opt = [])
             $chown = $globalHost['chown'] ?? 'websync:websync';
             $globalHost['chown'] = readline("远程chown: [{$chown}] \n") ?: $chown;
 
-            $globalConf['remotes'][$readHostname] = $globalHost;
+            // 询问是否符合设置的配置
+            $globalConf['remotes'][$hostname] = $globalHost;
             echo var_export($globalConf['remotes'], true) . PHP_EOL;
             if (strtolower(readline("请确认全局远程服务器配置 [Y/n] \n") ?: 'Y') != 'y') {
                 exit;
             }
 
+            // 写入配置
+            $pathGlobal = getenv('HOME') . '/.websyncrc.php';
             file_put_contents($pathGlobal, "<?php\n\nreturn " . var_export($globalConf, true) . ';' . PHP_EOL);
             echo "{$pathGlobal} 设置完成，可随时修改配置文件" . PHP_EOL;
 
@@ -302,7 +308,7 @@ function setGlobal(string $action, $opt = [])
  * @param array $conf
  * @return bool
  */
-function checkVersion(array $conf)
+function checkVersion(array $conf): bool
 {
     if (empty($conf['version'])
         || !is_string($conf['version'])
@@ -312,4 +318,56 @@ function checkVersion(array $conf)
     }
 
     return true;
+}
+
+/**
+ * 取全局配置
+ * @return array
+ */
+function getGlobalConfig(): array
+{
+    $pathGlobal = getenv('HOME') . '/.websyncrc.php';
+    $globalConf = is_file($pathGlobal) ? include($pathGlobal) : [];
+
+    return $globalConf;
+}
+
+/**
+ * 用户 选择/输入 远程服务器
+ * @param array $globalConf
+ * @param bool $isSelect 是否以选择方式得到服务器名
+ * @return string
+ */
+function inputHostname(array $globalConf, bool &$isSelect = false): string
+{
+    $globalRemotes = array_keys($globalConf['remotes']) ?? []; // 所有远程服务器名
+
+    if (count($globalRemotes)) {
+        // 选择/输入 远程服务器名
+        $remoteHostname = [];
+        foreach ($globalRemotes as $k => $v) {
+            $remoteHostname[] = ($k + 1) . ". {$v}";
+        }
+        $remoteHostname[] = (count($remoteHostname) + 1) . '. 其它';
+
+        // 选择
+        $hostnameIndex = readline("请选择远程服务器:\n" . implode("\n", $remoteHostname) . PHP_EOL) - 1;
+        while (!isset($remoteHostname[$hostnameIndex])) {
+            $hostnameIndex = readline("不在范围内，请重新选择:\n" . implode("\n", $remoteHostname) . PHP_EOL) - 1;
+        }
+
+        // 选择了 最后一项-其它，自行输入
+        if ($hostnameIndex == (count($remoteHostname) - 1)) {
+            $hostname = readline("远程服务器名: [hostname1] \n");
+        } else {
+            // 选择
+            $isSelect = true;
+            $hostname = $globalRemotes[$hostnameIndex];
+        }
+    } else {
+        // 自行输入
+        $hostname = readline("远程服务器名: [hostname1] \n");
+    }
+
+    return $hostname;
 }
