@@ -2,7 +2,7 @@
 
 return [
     // 配置文件的版本号
-    'version' => '2.2',
+    'version' => '2.3',
     // rsync --include=, 不排除的列表
     'include' => [],
     // rsync --exclude=, 排除列表
@@ -11,9 +11,11 @@ return [
         '.git/',
         '.idea/',
     ],
+    // rsync 参数 Options
+    'options' => '-avz --delete --progress',
     // 远程服务器
     'remotes' => [
-        // 自定义服务器名称
+        // 自定义服务器名称，优化级比全局高，不存在时使用全局配置
         'hostname1' => [
             // SSH
             '@' => 'websync@host',

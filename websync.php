@@ -5,8 +5,8 @@
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
-const VERSION = '2.2.3'; // 程序版本
-const VERSION_CONFIG = '2.2'; // 配置文件版本
+const VERSION = '2.2.4'; // 程序版本
+const VERSION_CONFIG = '2.3'; // 配置文件版本
 
 if (version_compare(phpversion(), '7.1', '<')) {
     echo 'PHP版本必须 >=7.1' . PHP_EOL;
@@ -29,53 +29,8 @@ if ($isHelp) {
     if ($action == 'config') {
         echo file_get_contents(__DIR__ . '/.websyncrc.example.php') . PHP_EOL;
     } else {
-        echo PHP_EOL;
-        echo /** @lang text */
-        <<<DOC
-基于 rsync 的本地、远程 双向同步工具
-
-USAGE:
-    websync [push] [<hostname>...]
-    websync pull [<hostname>]
-    websync -t
-    websync --init
-    websync -g ( config | ([-d] remote) )
-    websync -h [config]
-    websync --version
-   
-OPTIONS:
-    push
-        本地->远程 同步，默认动作，支持多个，没有指定 hostname 时读取配置
-        
-    pull
-        远程->本地 同步，没有指定 hostname 时读取配置
-       
-    -t, --test
-        测试模式，只打印而不执行同步命令
-
-    --init
-        初始化配置文件
-
-    -g, --global
-        全局配置
-        `config` 查看全局配置文件的路径
-        `remote` 设置全局配置里的远程服务器
-        
-    -d, --delete
-        删除配置
-        `-g -d remote` 删除全局的远程服务器配置
-        
-    -h, --help
-        查看帮助
-        `config` 查看配置说明
-        
-    --version
-        查看版本
-DOC;
-        echo PHP_EOL;
-        echo PHP_EOL;
+        help();
     }
-
     exit;
 }
 
@@ -107,10 +62,13 @@ if ($isInit) {
 
 // 检查配置文件
 if (!file_exists($pathConf)) {
-    echo '请先初始化并编辑配置文件:' . PHP_EOL;
-    echo 'websync --init' . PHP_EOL;
+    if (strtolower(readline2("配置文件不存在，是否现在进行初始化？[Y/n] \n") ?: 'Y') == 'y') {
+        initSetting($pathConf);
+    }
     exit;
 }
+
+// 加载当前目录下的配置文件
 $conf = include($pathConf);
 
 // 检查版本号
@@ -150,6 +108,7 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
         }
     }
 
+    // 本机、远程 路径
     $localPath = './';
     $remotePath = "{$curRemoteConf['@']}:"
         . rtrim($curRemoteConf['path'], '/')
@@ -158,13 +117,22 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
         . '/';
     list($chown, $src, $dst) = $actionHook($localPath, $remotePath);
 
+    // ssh命令，通常用于指定端口
     $command = '';
     if (!empty($curRemoteConf['command'])) {
         $command = "-e \"{$curRemoteConf['command']}\"";
     }
 
-    $cmd = "rsync -avz --delete --progress {$chown} {$command} {$includeParam} {$excludeParam} {$src} {$dst}";
+    // rsync 参数 Options
+    $options = '';
+    if (!empty($conf['options'])) {
+        $options = $conf['options'];
+    }
 
+    // 完整 rsync 命令
+    $cmd = "rsync {$options} {$chown} {$command} {$includeParam} {$excludeParam} {$src} {$dst}";
+
+    // 测试模式
     if ($isTest) {
         $cmd = preg_replace('/^rsync/', 'rsync -n', $cmd);
         echo $cmd . PHP_EOL;
@@ -205,9 +173,62 @@ switch ($action) {
         );
         break;
     default:
-        echo "参数错误，请参考 \nwebsync -h" . PHP_EOL;
+        if (strtolower(readline2("参数错误，是否查看帮助？[Y/n] \n") ?: 'Y') == 'y') {
+            help();
+        }
         exit;
         break;
+}
+
+/**
+ * 帮助
+ */
+function help()
+{
+    echo PHP_EOL;
+    echo /** @lang text */
+    <<<DOC
+基于 rsync 的本地、远程 双向同步工具
+
+USAGE:
+    websync [push] [<hostname>...]
+    websync pull [<hostname>]
+    websync -t
+    websync --init
+    websync -g ( config | ([-d] remote) )
+    websync -h [config]
+    websync --version
+   
+OPTIONS:
+    push
+        本地->远程 同步，默认动作，支持多个，没有指定 hostname 时读取配置
+        
+    pull
+        远程->本地 同步，没有指定 hostname 时读取配置
+       
+    -t, --test
+        测试模式，只打印而不执行同步命令
+
+    --init
+        初始化配置文件
+
+    -g, --global
+        全局配置
+        `config` 查看全局配置文件的路径
+        `remote` 设置全局配置里的远程服务器
+        
+    -d, --delete
+        删除配置
+        `-g -d remote` 删除全局的远程服务器配置
+        
+    -h, --help
+        查看帮助
+        `config` 查看配置说明
+        
+    --version
+        查看版本
+DOC;
+    echo PHP_EOL . PHP_EOL;
 }
 
 /**
@@ -286,10 +307,13 @@ function setGlobal(string $action, $opt = []): void
                 }
 
                 if ($globalHost) {
-                    echo var_export($globalHost, true) . PHP_EOL;
+                    echo "当前 {$hostname} 配置如下:" . PHP_EOL;
+                    echo var_export($globalHost, true) . PHP_EOL . PHP_EOL;
                 }
 
                 // 修改配置
+                echo '请按提示输入新值，直接回车则跳过' . PHP_EOL . PHP_EOL;
+
                 $ssh = $globalHost['@'] ?? "websync@{$hostname}";
                 $globalHost['@'] = readline2("远程SSH: [{$ssh}] \n") ?: $ssh;
 
@@ -317,7 +341,9 @@ function setGlobal(string $action, $opt = []): void
 
             break;
         default:
-            echo "参数错误，请参考 \nwebsync -h" . PHP_EOL;
+            if (strtolower(readline2("参数错误，是否查看帮助？[Y/n] \n") ?: 'Y') == 'y') {
+                help();
+            }
             break;
     }
 }
