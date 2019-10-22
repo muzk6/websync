@@ -154,10 +154,12 @@ switch ($action) {
             $hostname = trim($hostname);
             $execRsync($hostname,
                 function ($localPath, $remotePath) use ($hostname, $conf) {
+                    $globalConf = getGlobalConfig();
+
                     // 重置文件归属
                     $chown = '--chown=websync:websync';
-                    if (!empty($conf['remotes'][$hostname]['chown'])) {
-                        $chown = "--chown={$conf['remotes'][$hostname]['chown']}";
+                    if (!empty($globalConf['remotes'][$hostname]['chown'])) {
+                        $chown = "--chown={$globalConf['remotes'][$hostname]['chown']}";
                     }
 
                     return [$chown, $localPath, $remotePath];
