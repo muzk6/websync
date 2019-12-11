@@ -5,7 +5,7 @@
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
-const VERSION = '2.2.4'; // 程序版本
+const VERSION = '2.3.0'; // 程序版本
 const VERSION_CONFIG = '2.3'; // 配置文件版本
 
 if (version_compare(phpversion(), '7.1', '<')) {
@@ -22,7 +22,6 @@ $isGlobal = isset($opt['g']) || isset($opt['global']);
 $isVersion = isset($opt['version']);
 $isDelete = isset($opt['d']) || isset($opt['delete']);
 $action = $argv[$ind] ?? 'push';
-$hostname = $argv[$ind + 1] ?? null;
 
 // 查看帮助
 if ($isHelp) {
@@ -60,53 +59,44 @@ if ($isInit) {
     exit;
 }
 
-// 检查配置文件
-if (!file_exists($pathConf)) {
-    if (strtolower(readline2("配置文件不存在，是否现在进行初始化？[Y/n] \n") ?: 'Y') == 'y') {
-        initSetting($pathConf);
+if ($action !== 'clone') {
+    // 检查配置文件
+    if (!file_exists($pathConf)) {
+        if (strtolower(readline2("配置文件不存在，是否现在进行初始化？[Y/n] \n") ?: 'Y') == 'y') {
+            initSetting($pathConf);
+        }
+        exit;
     }
-    exit;
-}
 
-// 加载当前目录下的配置文件
-$conf = include($pathConf);
+    // 加载当前目录下的配置文件
+    $conf = include($pathConf);
 
-// 检查版本号
-if (!checkVersion($conf)) {
-    exit;
-}
+    // 检查版本号
+    if (!checkVersion($conf)) {
+        exit;
+    }
 
-// 构造用于非排除文件的参数
-$includeParam = [];
-foreach ($conf['include'] as $v) {
-    $v = trim($v);
-    $includeParam[] = "--include={$v}";
-}
-$includeParam = implode(' ', $includeParam);
+    // 构造用于非排除文件的参数
+    $includeParam = [];
+    foreach ($conf['include'] as $v) {
+        $v = trim($v);
+        $includeParam[] = "--include={$v}";
+    }
+    $includeParam = implode(' ', $includeParam);
 
-// 构造用于排除文件的参数
-$excludeParam = [];
-foreach ($conf['exclude'] as $ignore) {
-    $ignore = trim($ignore);
-    $excludeParam[] = "--exclude={$ignore}";
+    // 构造用于排除文件的参数
+    $excludeParam = [];
+    foreach ($conf['exclude'] as $ignore) {
+        $ignore = trim($ignore);
+        $excludeParam[] = "--exclude={$ignore}";
+    }
+    $excludeParam = implode(' ', $excludeParam);
 }
-$excludeParam = implode(' ', $excludeParam);
 
 // 执行 rsync 命令
 $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $includeParam, $excludeParam) {
     // 检查 remote 是否存在
-    $curRemoteConf = &$conf['remotes'][$hostname];
-    if (!isset($curRemoteConf)) { // 先检查当前目录的配置
-        $globalConf = getGlobalConfig();
-
-        $curRemoteConf = &$globalConf['remotes'][$hostname];
-        if (!isset($curRemoteConf)) { // 再检查全局配置
-            if (strtolower(readline2("远程服务器 {$hostname} 不存在，是否现在进行配置？[Y/n] \n") ?: 'Y') == 'y') {
-                setGlobal('remote', ['hostname' => $hostname]);
-            }
-            exit;
-        }
-    }
+    $curRemoteConf = checkHost($hostname);
 
     // 本机、远程 路径
     $localPath = './';
@@ -118,10 +108,7 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
     list($chown, $src, $dst) = $actionHook($localPath, $remotePath);
 
     // ssh命令，通常用于指定端口
-    $command = '';
-    if (!empty($curRemoteConf['command'])) {
-        $command = "-e \"{$curRemoteConf['command']}\"";
-    }
+    $sshCommand = getSSHCommand($curRemoteConf['command']);
 
     // rsync 参数 Options
     $options = '';
@@ -130,7 +117,7 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
     }
 
     // 完整 rsync 命令
-    $cmd = "rsync {$options} {$chown} {$command} {$includeParam} {$excludeParam} {$src} {$dst}";
+    $cmd = "rsync {$options} {$chown} {$sshCommand} {$includeParam} {$excludeParam} {$src} {$dst}";
 
     // 测试模式
     if ($isTest) {
@@ -144,6 +131,7 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
 // 执行动作
 switch ($action) {
     case 'push':
+        $hostname = $argv[$ind + 1] ?? null;
         if ($hostname) {
             $hostnameList = explode(',', $hostname);
         } else {
@@ -168,11 +156,42 @@ switch ($action) {
         }
         break;
     case 'pull':
+        $hostname = $argv[$ind + 1] ?? null;
         $execRsync($hostname ? trim($hostname) : $conf['pull'],
             function ($localPath, $remotePath) {
                 return ['', $remotePath, $localPath];
             }
         );
+        break;
+    case 'clone':
+        $remotePath = $argv[$ind + 1] ?? null;
+        $localPath = $argv[$ind + 2] ?? null;
+
+        if (!$remotePath || strpos($remotePath, ':') === false) {
+            echo '<remote_path> 格式错误' . PHP_EOL;
+            echo 'e.g. websync clone my_hostname:/path/to' . PHP_EOL;
+            exit;
+        }
+
+        $tmp = explode(':', $remotePath);
+        $hostname = $tmp[0];
+        $remotePathRelate = $tmp[1];
+        $curRemoteConf = checkHost($hostname); // 检查 remote 是否存在
+
+        $src = "{$curRemoteConf['@']}:"
+            . rtrim($remotePathRelate, '/');
+        if ($localPath) {
+            $src .= '/';
+            $dst = $localPath;
+        } else {
+            $dst = '.';
+        }
+
+        // ssh命令，通常用于指定端口
+        $sshCommand = getSSHCommand($curRemoteConf['command']);
+
+        $cmd = "rsync -avz --progress {$sshCommand} {$src} {$dst}";
+        system($cmd);
         break;
     default:
         if (strtolower(readline2("参数错误，是否查看帮助？[Y/n] \n") ?: 'Y') == 'y') {
@@ -195,6 +214,7 @@ function help()
 USAGE:
     websync [push] [<hostname>...]
     websync pull [<hostname>]
+    websync clone <hostname>:<remote_path> [<local_path>]
     websync -t
     websync --init
     websync -g ( config | ([-d] remote) )
@@ -208,6 +228,10 @@ OPTIONS:
     pull
         远程->本地 同步，没有指定 hostname 时读取配置
        
+    clone
+        从远程克隆指定目录的所有文件
+        与 pull 的区别是：clone 不依赖 .websyncrc.php 局部配置
+        
     -t, --test
         测试模式，只打印而不执行同步命令
 
@@ -438,4 +462,43 @@ function readline2(string $prompt): string
 {
     echo $prompt;
     return readline();
+}
+
+/**
+ * 检查 remote 是否存在
+ * @param string $hostname
+ * @return array
+ */
+function checkHost(string $hostname): array
+{
+    global $conf;
+    $curRemoteConf = &$conf['remotes'][$hostname];
+    if (!isset($curRemoteConf)) { // 先检查当前目录的配置
+        $globalConf = getGlobalConfig();
+
+        $curRemoteConf = &$globalConf['remotes'][$hostname];
+        if (!isset($curRemoteConf)) { // 再检查全局配置
+            if (strtolower(readline2("远程服务器 {$hostname} 不存在，是否现在进行配置？[Y/n] \n") ?: 'Y') == 'y') {
+                setGlobal('remote', ['hostname' => $hostname]);
+            }
+            exit;
+        }
+    }
+
+    return $curRemoteConf;
+}
+
+/**
+ * 读取 ssh 命令配置
+ * @param $commandConf
+ * @return string
+ */
+function getSSHCommand(&$commandConf)
+{
+    $command = '';
+    if (!empty($commandConf)) {
+        $command = "-e \"{$commandConf}\"";
+    }
+
+    return $command;
 }
