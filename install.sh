@@ -1,4 +1,4 @@
 #! /bin/bash
 
-chmod a+x websync.php
-ln -s `pwd`/websync.php /usr/local/bin/websync
+chmod a+x websync.phar
+ln -s `pwd`/websync.phar /usr/local/bin/websync
