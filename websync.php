@@ -1,27 +1,71 @@
-#! /usr/bin/env php
 <?php
 
 /**
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
-const VERSION = '2.3.0'; // 程序版本
+const VERSION = '2.3.1'; // 程序版本
 const VERSION_CONFIG = '2.3'; // 配置文件版本
 
-if (version_compare(phpversion(), '7.1', '<')) {
-    echo 'PHP版本必须 >=7.1' . PHP_EOL;
-    exit;
-}
+const HELP = <<<DOC
+基于 rsync 的本地、远程 双向同步工具
 
-$opt = getopt('h::t::g::d::', ['init::', 'test::', 'help::', 'delete::', 'global::', 'version::'], $ind);
+USAGE:
+    websync [push] [<hostname>...]
+    websync pull [<hostname>]
+    websync clone <hostname>:<remote_path> [<local_path>]
+    websync -t
+    websync --init
+    websync -g ( config | ([-d] remote) )
+    websync -h [config]
+    websync --version
+   
+OPTIONS:
+    push
+        本地->远程 同步，默认动作，支持多个，没有指定 hostname 时读取配置
+        
+    pull
+        远程->本地 同步，没有指定 hostname 时读取配置
+       
+    clone
+        从远程克隆指定目录的所有文件
+        与 pull 的区别是：clone 不依赖 .websyncrc.php 局部配置
+        
+    -t, --test
+        测试模式，只打印而不执行同步命令
 
-$isHelp = isset($opt['h']) || isset($opt['help']);
-$isInit = isset($opt['init']);
-$isTest = isset($opt['t']) || isset($opt['test']);
-$isGlobal = isset($opt['g']) || isset($opt['global']);
-$isVersion = isset($opt['version']);
-$isDelete = isset($opt['d']) || isset($opt['delete']);
-$action = $argv[$ind] ?? 'push';
+    --init
+        初始化配置文件
+
+    -g, --global
+        全局配置
+        `config` 查看全局配置文件的路径
+        `remote` 设置全局配置里的远程服务器
+        
+    -d, --delete
+        删除配置
+        `-g -d remote` 删除全局的远程服务器配置
+        
+    -h, --help
+        查看帮助
+        `config` 查看配置说明
+        
+    --version
+        查看版本
+DOC;
+
+require_once __DIR__ . '/vendor/autoload.php';
+
+use Diversen\ParseArgv;
+
+$parser = new ParseArgv();
+$isHelp = isset($parser->flags['h']) || isset($parser->flags['help']);
+$isInit = isset($parser->flags['init']);
+$isTest = isset($parser->flags['t']) || isset($parser->flags['test']);
+$isGlobal = isset($parser->flags['g']) || isset($parser->flags['global']);
+$isVersion = isset($parser->flags['version']);
+$isDelete = isset($parser->flags['d']) || isset($parser->flags['delete']);
+$action = isset($parser->values[0]) ? $parser->values[0] : 'push';
 
 // 查看帮助
 if ($isHelp) {
@@ -94,7 +138,7 @@ if ($action !== 'clone') {
 }
 
 // 执行 rsync 命令
-$execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $includeParam, $excludeParam) {
+$execRsync = function ($hostname, callable $actionHook) use (&$conf, $isTest, &$includeParam, &$excludeParam) {
     // 检查 remote 是否存在
     $curRemoteConf = checkHost($hostname);
 
@@ -131,7 +175,7 @@ $execRsync = function ($hostname, callable $actionHook) use ($conf, $isTest, $in
 // 执行动作
 switch ($action) {
     case 'push':
-        $hostname = $argv[$ind + 1] ?? null;
+        $hostname = isset($parser->values[1]) ? $parser->values[1] : null;
         if ($hostname) {
             $hostnameList = explode(',', $hostname);
         } else {
@@ -156,7 +200,7 @@ switch ($action) {
         }
         break;
     case 'pull':
-        $hostname = $argv[$ind + 1] ?? null;
+        $hostname = isset($parser->values[1]) ? $parser->values[1] : null;
         $execRsync($hostname ? trim($hostname) : $conf['pull'],
             function ($localPath, $remotePath) {
                 return ['', $remotePath, $localPath];
@@ -164,12 +208,12 @@ switch ($action) {
         );
         break;
     case 'clone':
-        $remotePath = $argv[$ind + 1] ?? null;
-        $localPath = $argv[$ind + 2] ?? null;
+        $remotePath = isset($parser->values[1]) ? $parser->values[1] : null;
+        $localPath = isset($parser->values[2]) ? $parser->values[2] : null;
 
         if (!$remotePath || strpos($remotePath, ':') === false) {
             echo '<remote_path> 格式错误' . PHP_EOL;
-            echo 'e.g. websync clone my_hostname:/path/to' . PHP_EOL;
+            echo 'e.g. websync clone my_hostname:/path/to/my_project' . PHP_EOL;
             exit;
         }
 
@@ -206,62 +250,15 @@ switch ($action) {
  */
 function help()
 {
+    echo HELP . PHP_EOL;
     echo PHP_EOL;
-    echo /** @lang text */
-    <<<DOC
-基于 rsync 的本地、远程 双向同步工具
-
-USAGE:
-    websync [push] [<hostname>...]
-    websync pull [<hostname>]
-    websync clone <hostname>:<remote_path> [<local_path>]
-    websync -t
-    websync --init
-    websync -g ( config | ([-d] remote) )
-    websync -h [config]
-    websync --version
-   
-OPTIONS:
-    push
-        本地->远程 同步，默认动作，支持多个，没有指定 hostname 时读取配置
-        
-    pull
-        远程->本地 同步，没有指定 hostname 时读取配置
-       
-    clone
-        从远程克隆指定目录的所有文件
-        与 pull 的区别是：clone 不依赖 .websyncrc.php 局部配置
-        
-    -t, --test
-        测试模式，只打印而不执行同步命令
-
-    --init
-        初始化配置文件
-
-    -g, --global
-        全局配置
-        `config` 查看全局配置文件的路径
-        `remote` 设置全局配置里的远程服务器
-        
-    -d, --delete
-        删除配置
-        `-g -d remote` 删除全局的远程服务器配置
-        
-    -h, --help
-        查看帮助
-        `config` 查看配置说明
-        
-    --version
-        查看版本
-DOC;
-    echo PHP_EOL . PHP_EOL;
 }
 
 /**
  * 初始化配置
  * @param string $pathConf
  */
-function initSetting(string $pathConf): void
+function initSetting($pathConf)
 {
     if (file_exists($pathConf)) {
         echo "{$pathConf} 已经存在" . PHP_EOL;
@@ -298,7 +295,7 @@ function initSetting(string $pathConf): void
  * @param string $action
  * @param array $opt
  */
-function setGlobal(string $action, $opt = []): void
+function setGlobal($action, $opt = [])
 {
     switch ($action) {
         case 'remote':
@@ -340,16 +337,16 @@ function setGlobal(string $action, $opt = []): void
                 // 修改配置
                 echo '请按提示输入新值，直接回车则跳过' . PHP_EOL . PHP_EOL;
 
-                $ssh = $globalHost['@'] ?? "websync@{$hostname}";
+                $ssh = isset($globalHost['@']) ? $globalHost['@'] : "websync@{$hostname}";
                 $globalHost['@'] = readline2("远程SSH: [{$ssh}] \n") ?: $ssh;
 
-                $command = $globalHost['command'] ?? 'ssh -p 22';
+                $command = isset($globalHost['command']) ? $globalHost['command'] : 'ssh -p 22';
                 $globalHost['command'] = readline2("远程命令: [{$command}] \n") ?: $command;
 
-                $path = $globalHost['path'] ?? '/path/to';
+                $path = isset($globalHost['path']) ? $globalHost['path'] : '/path/to';
                 $globalHost['path'] = readline2("远程根目录: [{$path}] \n") ?: $path;
 
-                $chown = $globalHost['chown'] ?? 'websync:websync';
+                $chown = isset($globalHost['chown']) ? $globalHost['chown'] : 'websync:websync';
                 $globalHost['chown'] = readline2("远程chown: [{$chown}] \n") ?: $chown;
 
                 // 询问是否符合设置的配置
@@ -379,7 +376,7 @@ function setGlobal(string $action, $opt = []): void
  * @param array $conf
  * @return bool
  */
-function checkVersion(array $conf): bool
+function checkVersion($conf)
 {
     if (empty($conf['version'])
         || !is_string($conf['version'])
@@ -395,7 +392,7 @@ function checkVersion(array $conf): bool
  * 读取全局配置
  * @return array
  */
-function getGlobalConfig(): array
+function getGlobalConfig()
 {
     $pathGlobal = getenv('HOME') . '/.websyncrc.global.php';
     $globalConf = is_file($pathGlobal) ? include($pathGlobal) : [];
@@ -411,7 +408,7 @@ function getGlobalConfig(): array
  * @param string $prompt 选择提示
  * @return string
  */
-function inputHostname(array $globalConf, bool &$isSelect = false, bool $allowCustom = true, string $prompt = "请选择远程服务器:\n"): string
+function inputHostname($globalConf, &$isSelect = false, $allowCustom = true, $prompt = "请选择远程服务器:\n")
 {
     $globalRemotes = isset($globalConf['remotes']) ? array_keys($globalConf['remotes']) : []; // 所有远程服务器名
 
@@ -458,10 +455,10 @@ function inputHostname(array $globalConf, bool &$isSelect = false, bool $allowCu
  * @param string $prompt
  * @return string
  */
-function readline2(string $prompt): string
+function readline2($prompt)
 {
     echo $prompt;
-    return readline();
+    return fgets(STDIN);
 }
 
 /**
@@ -469,7 +466,7 @@ function readline2(string $prompt): string
  * @param string $hostname
  * @return array
  */
-function checkHost(string $hostname): array
+function checkHost($hostname)
 {
     global $conf;
     $curRemoteConf = &$conf['remotes'][$hostname];
