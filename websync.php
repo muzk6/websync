@@ -4,7 +4,7 @@
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
-const VERSION = '2.3.1'; // 程序版本
+const VERSION = '2.3.2'; // 程序版本
 const VERSION_CONFIG = '2.3'; // 配置文件版本
 
 const HELP = <<<DOC
@@ -220,7 +220,7 @@ switch ($action) {
         $tmp = explode(':', $remotePath);
         $hostname = $tmp[0];
         $remotePathRelate = $tmp[1];
-        $curRemoteConf = checkHost($hostname); // 检查 remote 是否存在
+        $curRemoteConf = checkHost($hostname, true); // 检查 remote 是否存在
 
         $src = "{$curRemoteConf['@']}:"
             . rtrim($remotePathRelate, '/');
@@ -458,15 +458,16 @@ function inputHostname($globalConf, &$isSelect = false, $allowCustom = true, $pr
 function readline2($prompt)
 {
     echo $prompt;
-    return fgets(STDIN);
+    return trim(fgets(STDIN));
 }
 
 /**
  * 检查 remote 是否存在
  * @param string $hostname
+ * @param bool $continue true: 不存在时创建完成后不退出脚本
  * @return array
  */
-function checkHost($hostname)
+function checkHost($hostname, $continue = false)
 {
     global $conf;
     $curRemoteConf = &$conf['remotes'][$hostname];
@@ -477,8 +478,10 @@ function checkHost($hostname)
         if (!isset($curRemoteConf)) { // 再检查全局配置
             if (strtolower(readline2("远程服务器 {$hostname} 不存在，是否现在进行配置？[Y/n] \n") ?: 'Y') == 'y') {
                 setGlobal('remote', ['hostname' => $hostname]);
+                $continue || exit;
+            } else {
+                exit;
             }
-            exit;
         }
     }
 
