@@ -8,7 +8,7 @@
 ## 安装
 
 - `git clone --depth=1 https://github.com/muzk6/websync.git` 下载
-- `sudo ./install.sh` 安装
+- `./install.sh` 安装
 - `websync -h` 查看帮助
 
 ## 帮助
