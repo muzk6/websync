@@ -2,9 +2,10 @@
 
 $outfile = 'websync.phar';
 $extList = ['php'];
+$outPath = __DIR__ . '/' . $outfile;
 
-unlink(__DIR__ . '/' . $outfile);
-$phar = new Phar(__DIR__ . '/' . $outfile, FilesystemIterator::CURRENT_AS_FILEINFO | FilesystemIterator::KEY_AS_FILENAME, $outfile);
+file_exists($outPath) && unlink($outPath);
+$phar = new Phar($outPath, FilesystemIterator::CURRENT_AS_FILEINFO | FilesystemIterator::KEY_AS_FILENAME, $outfile);
 
 $phar->startBuffering();
 
