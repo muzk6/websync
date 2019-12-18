@@ -79,7 +79,7 @@ if ($isHelp) {
 
 // 查看程序版本
 if ($isVersion) {
-    echo 'websync version ' . VERSION . PHP_EOL;
+    echo 'websync version ' . VERSION . (isset($IS_DEV) ? ' DEV' : '') . PHP_EOL;
     echo '.websyncrc.php version minimum support ' . VERSION_CONFIG . PHP_EOL;
     exit;
 }

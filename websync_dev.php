@@ -3,9 +3,11 @@
 
 /**
  * 开发版入口
- * rm /usr/local/bin/websync &&ln -s `pwd`/websync_dev.php /usr/local/bin/websync
+ * bash install_dev.sh
  */
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+$IS_DEV = true;
+
 include __DIR__ . '/websync.php';
