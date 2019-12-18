@@ -15,6 +15,7 @@
 ### 使用源码安装
 
 - `git clone --depth=1 https://github.com/muzk6/websync.git` 下载源码
+- `composer install`
 - `./install.sh` 安装
 
 ## 帮助
@@ -65,3 +66,7 @@ OPTIONS:
     --version
         查看版本
 ```
+
+## 开发调试
+
+- `php build.php && php websync.phar -t` 调试预编译包

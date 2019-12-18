@@ -13,8 +13,8 @@ foreach ($extList as $ext) {
     $phar->buildFromDirectory(__DIR__, '/\.' . $ext . '$/');
 }
 $phar->delete('build.php');
-$phar->delete('.websyncrc.php');
-$phar->delete('websync_dev.php');
+$phar->delete('websync.php');
+file_exists(realpath('.websyncrc.php')) && $phar->delete('.websyncrc.php');
 $phar->setStub("#! /usr/bin/env php\n" . $phar->createDefaultStub('index.php')); // 程序入口
 
 $phar->stopBuffering();
