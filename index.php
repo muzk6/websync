@@ -95,7 +95,7 @@ if ($isGlobal) {
 }
 
 // 配置文件路径
-$pathConf = './.websyncrc.php';
+$pathConf = realpath('./.websyncrc.php');
 
 // 初始化配置
 if ($isInit) {

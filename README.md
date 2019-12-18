@@ -7,7 +7,15 @@
 
 ## 安装
 
-- `git clone --depth=1 https://github.com/muzk6/websync.git` 下载
+### 使用预编译包安装
+
+- https://github.com/muzk6/websync/releases 下载最新版安装包
+- `chmod +x websync.phar` 
+- `mv websync.phar /usr/local/bin/websync` 
+
+### 使用源码安装
+
+- `git clone --depth=1 https://github.com/muzk6/websync.git` 下载源码
 - `./install.sh` 安装
 - `websync -h` 查看帮助
 
