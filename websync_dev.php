@@ -10,4 +10,4 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 $IS_DEV = true;
 
-include __DIR__ . '/websync.php';
+include __DIR__ . '/index.php';

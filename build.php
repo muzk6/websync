@@ -12,7 +12,9 @@ foreach ($extList as $ext) {
     $phar->buildFromDirectory(__DIR__, '/\.' . $ext . '$/');
 }
 $phar->delete('build.php');
-$phar->setStub("#! /usr/bin/env php\n" . $phar->createDefaultStub('websync.php')); // 程序入口
+$phar->delete('.websyncrc.php');
+$phar->delete('websync_dev.php');
+$phar->setStub("#! /usr/bin/env php\n" . $phar->createDefaultStub('index.php')); // 程序入口
 
 $phar->stopBuffering();
 echo "Finished {$outfile}\n";
