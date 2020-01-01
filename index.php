@@ -95,7 +95,7 @@ if ($isGlobal) {
 }
 
 // 配置文件路径
-$pathConf = realpath('./.websyncrc.php');
+$pathConf = './.websyncrc.php';
 
 // 初始化配置
 if ($isInit) {
@@ -105,7 +105,7 @@ if ($isInit) {
 
 if ($action !== 'clone') {
     // 检查配置文件
-    if (!file_exists($pathConf)) {
+    if (!(file_exists($pathConf) || realpath($pathConf))) {
         if (strtolower(readline2("配置文件不存在，是否现在进行初始化？[Y/n] \n") ?: 'Y') == 'y') {
             initSetting($pathConf);
         }

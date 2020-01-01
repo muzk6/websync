@@ -8,7 +8,6 @@ return [
     // rsync --exclude=, 排除列表
     'exclude' => [
         '.DS_Store',
-        '.git/',
         '.idea/',
     ],
     // rsync 参数 Options
