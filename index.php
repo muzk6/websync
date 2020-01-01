@@ -4,7 +4,7 @@
  * 基于 rsync 的本地、远程 双向同步工具
  */
 
-const VERSION = '2.3.2'; // 程序版本
+const VERSION = '2.3.3'; // 程序版本
 const VERSION_CONFIG = '2.3'; // 配置文件版本
 
 const HELP = <<<DOC
