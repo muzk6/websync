@@ -105,7 +105,7 @@ if ($isInit) {
 
 if ($action !== 'clone') {
     // 检查配置文件
-    if (!(file_exists($pathConf) || realpath($pathConf))) {
+    if (!file_exists(realpath($pathConf))) {
         if (strtolower(readline2("配置文件不存在，是否现在进行初始化？[Y/n] \n") ?: 'Y') == 'y') {
             initSetting($pathConf);
         }
@@ -113,7 +113,7 @@ if ($action !== 'clone') {
     }
 
     // 加载当前目录下的配置文件
-    $conf = include($pathConf);
+    $conf = include(realpath($pathConf));
 
     // 检查版本号
     if (!checkVersion($conf)) {
@@ -260,7 +260,7 @@ function help()
  */
 function initSetting($pathConf)
 {
-    if (file_exists($pathConf)) {
+    if (file_exists(realpath($pathConf))) {
         echo "{$pathConf} 已经存在" . PHP_EOL;
         exit;
     }
